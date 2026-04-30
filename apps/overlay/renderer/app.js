@@ -16,14 +16,23 @@ const POSITION_LABEL = {
 
 const stack = document.getElementById("stack");
 const indicator = document.getElementById("indicator");
-const bubbles = []; // { key, el, timer } — newest pushed last
+const statusBadge = document.getElementById("status-badge");
+const statusText = statusBadge.querySelector(".status-text");
+const bubbles = []; // { key, nickname, el, timer } — newest pushed last
 
 let fadeAfterMs = DEFAULT_FADE_MS;
 let indicatorTimer = null;
+let banSet = new Set();
+let banMode = false;
 
 function setStackClass(pos) {
-  stack.classList.remove("TL", "TR", "BL", "BR");
+  const corners = ["TL", "TR", "BL", "BR"];
+  for (const c of corners) {
+    stack.classList.remove(c);
+    statusBadge.classList.remove(c);
+  }
   stack.classList.add(pos);
+  statusBadge.classList.add(pos);
 }
 
 function applyFontSize(px) {
@@ -37,16 +46,26 @@ function showIndicator(text) {
   indicatorTimer = setTimeout(() => indicator.classList.remove("visible"), 1500);
 }
 
+function applyBanModeUI() {
+  document.body.classList.toggle("ban-mode", banMode);
+  statusBadge.classList.toggle("ban", banMode);
+  statusText.textContent = banMode ? "차단 모드" : "구름";
+}
+
 (async function init() {
   try {
     const s = await window.api.getSettings();
     setStackClass(s.position || DEFAULT_POSITION);
     applyFontSize(s.fontSize || DEFAULT_FONT_PX);
     fadeAfterMs = s.fadeMs || DEFAULT_FADE_MS;
+    banSet = new Set(s.banList || []);
+    banMode = !!s.banMode;
+    applyBanModeUI();
   } catch (e) {
     console.error("getSettings failed, using defaults", e);
     setStackClass(DEFAULT_POSITION);
     applyFontSize(DEFAULT_FONT_PX);
+    applyBanModeUI();
   }
 
   window.api.onPositionChanged((pos) => {
@@ -60,6 +79,27 @@ function showIndicator(text) {
   window.api.onFadeChanged((ms) => {
     fadeAfterMs = ms;
     showIndicator(`표시 시간: ${(ms / 1000).toFixed(0)}초`);
+  });
+  window.api.onBanModeChanged((active) => {
+    banMode = active;
+    applyBanModeUI();
+    showIndicator(active ? "차단 모드 ON" : "차단 모드 OFF");
+  });
+  window.api.onBanListChanged((payload) => {
+    banSet = new Set(payload.list || []);
+    if (payload.reason === "add" && payload.nickname) {
+      showIndicator(`차단됨: ${payload.nickname}`);
+      // remove any other visible bubbles from this nickname
+      for (const entry of bubbles.slice()) {
+        if (entry.nickname === payload.nickname) removeBubble(entry);
+      }
+    } else if (payload.reason === "clear") {
+      showIndicator(`전체 차단 해제 (${payload.count}명)`);
+    }
+  });
+  window.api.onChatHiddenChanged((hidden) => {
+    document.body.classList.toggle("chat-hidden", hidden);
+    showIndicator(hidden ? "채팅 숨김 ON" : "채팅 숨김 OFF");
   });
 })();
 
@@ -77,6 +117,7 @@ setTimeout(() => { initialReplayDone = true; }, 500);
 onChildAdded(messagesQuery, (snap) => {
   const m = snap.val();
   if (!m) return;
+  if (m.nickname && banSet.has(m.nickname)) return; // filtered
   pushBubble(snap.key, m, /* animate */ initialReplayDone);
 });
 
@@ -86,6 +127,7 @@ function pushBubble(key, m, animate) {
   const el = document.createElement("div");
   el.className = "bubble";
   el.dataset.key = key;
+  el.dataset.nickname = m.nickname ?? "";
 
   const nick = document.createElement("span");
   nick.className = "nickname";
@@ -98,8 +140,16 @@ function pushBubble(key, m, animate) {
   el.appendChild(text);
   stack.appendChild(el);
 
-  const entry = { key, el, timer: null };
+  const entry = { key, nickname: m.nickname ?? "", el, timer: null };
   bubbles.push(entry);
+
+  // click-to-ban — only effective when ban mode is on (CSS controls pointer-events)
+  el.addEventListener("click", () => {
+    if (!banMode) return;
+    if (!entry.nickname) return;
+    window.api.requestBan(entry.nickname);
+    removeBubble(entry); // immediate visual feedback; main fans the ban-list-changed event back
+  });
 
   if (animate) {
     requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("in")));
@@ -107,10 +157,8 @@ function pushBubble(key, m, animate) {
     el.classList.add("in");
   }
 
-  // schedule fade-out using current fadeAfterMs
   entry.timer = setTimeout(() => removeBubble(entry), fadeAfterMs);
 
-  // bump older bubbles when over capacity
   while (bubbles.length > MAX_VISIBLE) {
     removeBubble(bubbles[0]);
   }

@@ -245,10 +245,30 @@ The combination of `transparent`, `frame: false`, `setAlwaysOnTop('screen-saver'
 
 - `Ctrl+=` / `Ctrl+-` — adjust bubble font size by ±2 px (range 16–64 px, default 28). Also `Ctrl+NumPad+` / `Ctrl+NumPad-` as numpad fallback.
 - `Ctrl+]` / `Ctrl+[` — adjust per-bubble fade duration by ±2 s (range 2–30 s, default 8 s).
-- `Ctrl+Shift+H` — toggle visibility (panic button if presenter wants the overlay gone).
+- `Ctrl+Shift+B` — toggle **ban mode** (see §7.5.1).
+- `Ctrl+Shift+U` — clear the entire local ban list (panic undo).
+- `Ctrl+Shift+H` — hide / show chat bubbles. **The status badge stays visible** so the presenter can confirm the app is still running. Toggle is transient (not persisted across restarts).
 - `Ctrl+Shift+Q` — quit (avoids clashing with PowerPoint's `Esc` for ending the slideshow).
 
-All adjustments are persisted to `userData/config.json` and survive restarts. A small top-center indicator (`위치: 왼쪽 아래` / `글자 크기: 32px` / `표시 시간: 10초`) flashes for 1.5 s on each change so the presenter can see the new value.
+All adjustments are persisted to `userData/config.json` and survive restarts. A small top-center indicator (`위치: 왼쪽 아래` / `글자 크기: 32px` / `표시 시간: 10초` / `차단 모드 ON`) flashes for 1.5 s on each change so the presenter can see the new value.
+
+### 7.5.1 Ban mode
+
+A lightweight in-app moderation tool. Local-overlay-side filtering — does not write to Firebase; banned users can theoretically bypass by changing nickname.
+
+- `Ctrl+Shift+B` toggles ban mode ON/OFF.
+- While ON:
+  - The status badge turns red (background `rgba(120,0,0,0.6)`, dot `#ff4646`, label `차단 모드`).
+  - Click-through is disabled (`setIgnoreMouseEvents(false)`) so bubbles can be clicked.
+  - Each visible bubble gains a red outline and `cursor: pointer`.
+  - **Clicking a bubble adds its `nickname` to the local block-list and removes the bubble.** Future messages from that nickname are silently filtered.
+  - Auto-exit after **30 s** of being on (safety — so the presenter can't accidentally leave click-through disabled).
+- `Ctrl+Shift+U` clears the entire block-list at once (with an indicator showing how many entries were removed).
+- The block-list is a `Set<string>` of banned nicknames, persisted as a JSON array under the `banList` key in `userData/config.json`.
+
+### 7.5.2 Status badge
+
+A tiny persistent pill (`● 구름`) is rendered in the corner **opposite** the chat anchor — so it never competes for attention with bubbles. Background `rgba(0,0,0,0.45)`, font 13 px, gap 7 px, with a green pulsing dot. Its placement class follows `#stack`'s class via `setStackClass`. Hidden together with the rest of the overlay when `Ctrl+Shift+H` is pressed.
 
 ### 7.6 Bubble visual
 
@@ -339,7 +359,8 @@ Captured during the brainstorming session, locked unless explicitly reopened:
 - **Scope:** chat only — no reactions, polls, or Q&A.
 - **Visibility:** both presenter and audience see overlay (single-monitor mirrored projection).
 - **OS:** Windows.
-- **Visual:** 4 selectable corners (`Ctrl+1..4`); deterministic per-user color from a curated 12-palette; max 5 bubbles at once; **fade time adjustable `Ctrl+]`/`Ctrl+[` (default 8 s, range 2–30 s)**; **font size adjustable `Ctrl+=`/`Ctrl+-` (default 28 px, range 16–64 px)**; on-screen indicator flashes new value on each adjustment.
+- **Visual:** 4 selectable corners (`Ctrl+1..4`); deterministic per-user color from a curated 12-palette; max 5 bubbles at once; **fade time adjustable `Ctrl+]`/`Ctrl+[` (default 8 s, range 2–30 s)**; **font size adjustable `Ctrl+=`/`Ctrl+-` (default 28 px, range 16–64 px)**; persistent **`● 구름` status badge** in opposite corner; on-screen indicator flashes new value on each adjustment.
+- **Moderation v1.1:** local-overlay click-to-ban via `Ctrl+Shift+B` ban mode + click bubble; `Ctrl+Shift+U` to clear all bans; auto-exit ban mode after 30 s. Local-only (does not write to Firebase rules); v2 should harden with a per-phone client ID.
 - **Language:** all UI copy in Korean; system Korean fonts (Malgun Gothic / Apple SD Gothic Neo / Noto Sans KR) — no web font downloaded.
 - **Stack:** Firebase Realtime DB + static HTML on Firebase Hosting + Electron overlay; no React / TypeScript / bundler in v1.
 - **Distribution:** portable `.exe` via `electron-builder` (no installer).

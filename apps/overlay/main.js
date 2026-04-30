@@ -5,15 +5,19 @@ const fs = require("node:fs");
 const POSITIONS = ["TL", "TR", "BL", "BR"];
 const DEFAULT_POSITION = "BL";
 
-// adjustable settings — persisted to userData/config.json
 const FONT_RANGE = { min: 16, max: 64, step: 2, def: 28 };
 const FADE_RANGE = { min: 2000, max: 30000, step: 2000, def: 8000 };
+const BAN_MODE_AUTO_EXIT_MS = 30000;
 
 let win = null;
 let configPath = null;
 let position = DEFAULT_POSITION;
 let fontSize = FONT_RANGE.def;
 let fadeMs = FADE_RANGE.def;
+let banList = new Set();
+let banMode = false;
+let banModeAutoExitTimer = null;
+let chatHidden = false;
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
@@ -30,6 +34,9 @@ function loadConfig() {
     if (typeof data.fadeMs === "number") {
       fadeMs = clamp(data.fadeMs, FADE_RANGE.min, FADE_RANGE.max);
     }
+    if (Array.isArray(data.banList)) {
+      banList = new Set(data.banList.filter((s) => typeof s === "string"));
+    }
   } catch {
     // first run — keep defaults
   }
@@ -39,7 +46,12 @@ function saveConfig() {
   try {
     fs.writeFileSync(
       configPath,
-      JSON.stringify({ position, fontSize, fadeMs }, null, 2),
+      JSON.stringify({
+        position,
+        fontSize,
+        fadeMs,
+        banList: [...banList],
+      }, null, 2),
     );
   } catch (e) {
     console.error("saveConfig failed", e);
@@ -104,13 +116,60 @@ function adjustFade(deltaMs) {
   }
 }
 
-function toggleVisibility() {
-  if (!win || win.isDestroyed()) return;
-  if (win.isVisible()) win.hide();
-  else win.show();
+function setBanMode(active) {
+  if (banMode === active) return;
+  banMode = active;
+  if (win && !win.isDestroyed()) {
+    if (banMode) {
+      win.setIgnoreMouseEvents(false);
+      clearTimeout(banModeAutoExitTimer);
+      banModeAutoExitTimer = setTimeout(() => setBanMode(false), BAN_MODE_AUTO_EXIT_MS);
+    } else {
+      win.setIgnoreMouseEvents(true, { forward: true });
+      clearTimeout(banModeAutoExitTimer);
+    }
+    win.webContents.send("ban-mode-changed", banMode);
+  }
 }
 
-ipcMain.handle("get-settings", () => ({ position, fontSize, fadeMs }));
+function addBan(nickname) {
+  if (typeof nickname !== "string" || nickname.length < 1) return;
+  if (banList.has(nickname)) return;
+  banList.add(nickname);
+  saveConfig();
+  if (win && !win.isDestroyed()) {
+    win.webContents.send("ban-list-changed", { list: [...banList], reason: "add", nickname });
+  }
+}
+
+function clearBans() {
+  if (banList.size === 0) {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("ban-list-changed", { list: [], reason: "clear", count: 0 });
+    }
+    return;
+  }
+  const count = banList.size;
+  banList = new Set();
+  saveConfig();
+  if (win && !win.isDestroyed()) {
+    win.webContents.send("ban-list-changed", { list: [], reason: "clear", count });
+  }
+}
+
+function toggleChatHidden() {
+  if (!win || win.isDestroyed()) return;
+  chatHidden = !chatHidden;
+  win.webContents.send("chat-hidden-changed", chatHidden);
+}
+
+ipcMain.handle("get-settings", () => ({
+  position, fontSize, fadeMs,
+  banList: [...banList],
+  banMode,
+}));
+
+ipcMain.on("ban", (_e, nickname) => addBan(nickname));
 
 app.whenReady().then(() => {
   configPath = path.join(app.getPath("userData"), "config.json");
@@ -123,19 +182,22 @@ app.whenReady().then(() => {
   globalShortcut.register("Control+3", () => setPosition("BL"));
   globalShortcut.register("Control+4", () => setPosition("BR"));
 
-  // font size — Ctrl+=/+ for up, Ctrl+- for down (matches browser zoom)
+  // font size
   globalShortcut.register("Control+=", () => adjustFontSize(FONT_RANGE.step));
   globalShortcut.register("Control+-", () => adjustFontSize(-FONT_RANGE.step));
-  // bonus: numpad equivalents in case "=" is awkward on a layout
   globalShortcut.register("Control+numadd", () => adjustFontSize(FONT_RANGE.step));
   globalShortcut.register("Control+numsub", () => adjustFontSize(-FONT_RANGE.step));
 
-  // fade duration — Ctrl+] longer, Ctrl+[ shorter
+  // fade
   globalShortcut.register("Control+]", () => adjustFade(FADE_RANGE.step));
   globalShortcut.register("Control+[", () => adjustFade(-FADE_RANGE.step));
 
-  // visibility / quit
-  globalShortcut.register("Control+Shift+H", toggleVisibility);
+  // moderation
+  globalShortcut.register("Control+Shift+B", () => setBanMode(!banMode));
+  globalShortcut.register("Control+Shift+U", () => clearBans());
+
+  // visibility / quit — Ctrl+Shift+H hides only chat bubbles, badge stays visible
+  globalShortcut.register("Control+Shift+H", toggleChatHidden);
   globalShortcut.register("Control+Shift+Q", () => app.quit());
 });
 
