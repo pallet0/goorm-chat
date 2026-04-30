@@ -6,29 +6,64 @@ import { firebaseConfig } from "./firebase-config.js";
 import { PALETTE } from "./palette.js";
 
 const MAX_VISIBLE = 5;
-const FADE_AFTER_MS = 8000;
+const DEFAULT_FADE_MS = 8000;
+const DEFAULT_FONT_PX = 28;
+const DEFAULT_POSITION = "BL";
+
+const POSITION_LABEL = {
+  TL: "왼쪽 위", TR: "오른쪽 위", BL: "왼쪽 아래", BR: "오른쪽 아래",
+};
 
 const stack = document.getElementById("stack");
+const indicator = document.getElementById("indicator");
 const bubbles = []; // { key, el, timer } — newest pushed last
 
-// 1) sync stack class from saved position, listen for hotkey changes
-(async function applyPosition() {
-  try {
-    const pos = await window.api.getPosition();
-    setStackClass(pos);
-  } catch (e) {
-    console.error("getPosition failed, defaulting to BL", e);
-    setStackClass("BL");
-  }
-  window.api.onPositionChanged((pos) => setStackClass(pos));
-})();
+let fadeAfterMs = DEFAULT_FADE_MS;
+let indicatorTimer = null;
 
 function setStackClass(pos) {
   stack.classList.remove("TL", "TR", "BL", "BR");
   stack.classList.add(pos);
 }
 
-// 2) firebase listen
+function applyFontSize(px) {
+  document.documentElement.style.setProperty("--bubble-font-size", `${px}px`);
+}
+
+function showIndicator(text) {
+  indicator.textContent = text;
+  indicator.classList.add("visible");
+  clearTimeout(indicatorTimer);
+  indicatorTimer = setTimeout(() => indicator.classList.remove("visible"), 1500);
+}
+
+(async function init() {
+  try {
+    const s = await window.api.getSettings();
+    setStackClass(s.position || DEFAULT_POSITION);
+    applyFontSize(s.fontSize || DEFAULT_FONT_PX);
+    fadeAfterMs = s.fadeMs || DEFAULT_FADE_MS;
+  } catch (e) {
+    console.error("getSettings failed, using defaults", e);
+    setStackClass(DEFAULT_POSITION);
+    applyFontSize(DEFAULT_FONT_PX);
+  }
+
+  window.api.onPositionChanged((pos) => {
+    setStackClass(pos);
+    showIndicator(`위치: ${POSITION_LABEL[pos] ?? pos}`);
+  });
+  window.api.onFontChanged((size) => {
+    applyFontSize(size);
+    showIndicator(`글자 크기: ${size}px`);
+  });
+  window.api.onFadeChanged((ms) => {
+    fadeAfterMs = ms;
+    showIndicator(`표시 시간: ${(ms / 1000).toFixed(0)}초`);
+  });
+})();
+
+// firebase listen
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const messagesQuery = query(
@@ -37,7 +72,6 @@ const messagesQuery = query(
 );
 
 let initialReplayDone = false;
-// Flip the flag after the initial burst so subsequent child_added fires animate.
 setTimeout(() => { initialReplayDone = true; }, 500);
 
 onChildAdded(messagesQuery, (snap) => {
@@ -46,7 +80,6 @@ onChildAdded(messagesQuery, (snap) => {
   pushBubble(snap.key, m, /* animate */ initialReplayDone);
 });
 
-// 3) bubble lifecycle
 function pushBubble(key, m, animate) {
   if (bubbles.find((b) => b.key === key)) return; // safety: no dupes
 
@@ -61,7 +94,6 @@ function pushBubble(key, m, animate) {
   nick.style.color = PALETTE[idx];
 
   const text = document.createTextNode(m.text ?? "");
-
   el.appendChild(nick);
   el.appendChild(text);
   stack.appendChild(el);
@@ -69,15 +101,14 @@ function pushBubble(key, m, animate) {
   const entry = { key, el, timer: null };
   bubbles.push(entry);
 
-  // animate in (or appear instantly during initial replay)
   if (animate) {
     requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("in")));
   } else {
     el.classList.add("in");
   }
 
-  // schedule fade-out
-  entry.timer = setTimeout(() => removeBubble(entry), FADE_AFTER_MS);
+  // schedule fade-out using current fadeAfterMs
+  entry.timer = setTimeout(() => removeBubble(entry), fadeAfterMs);
 
   // bump older bubbles when over capacity
   while (bubbles.length > MAX_VISIBLE) {

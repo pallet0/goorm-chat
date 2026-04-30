@@ -34,3 +34,4 @@ Always invoke the `superpowers:brainstorming` skill before adding features or ma
 
 - **2026-04-30** — Stack chosen: Firebase Realtime DB + static HTML on Firebase Hosting + Electron transparent overlay. Windows portable `.exe` via `electron-builder`. No React / TS / bundler in v1.
 - **2026-04-30** — Spec: `docs/superpowers/specs/2026-04-30-live-chat-overlay-design.md`.
+- **2026-04-30** — Added live-adjustable hotkeys for font size (`Ctrl+=`/`Ctrl+-`) and fade duration (`Ctrl+]`/`Ctrl+[`); both persist to `userData/config.json`. On-screen indicator confirms each change.

@@ -243,8 +243,12 @@ The combination of `transparent`, `frame: false`, `setAlwaysOnTop('screen-saver'
 
 ### 7.5 Other hotkeys
 
-- `Ctrl+Shift+Q` — quit (avoids clashing with PowerPoint's `Esc` for ending the slideshow).
+- `Ctrl+=` / `Ctrl+-` — adjust bubble font size by ±2 px (range 16–64 px, default 28). Also `Ctrl+NumPad+` / `Ctrl+NumPad-` as numpad fallback.
+- `Ctrl+]` / `Ctrl+[` — adjust per-bubble fade duration by ±2 s (range 2–30 s, default 8 s).
 - `Ctrl+Shift+H` — toggle visibility (panic button if presenter wants the overlay gone).
+- `Ctrl+Shift+Q` — quit (avoids clashing with PowerPoint's `Esc` for ending the slideshow).
+
+All adjustments are persisted to `userData/config.json` and survive restarts. A small top-center indicator (`위치: 왼쪽 아래` / `글자 크기: 32px` / `표시 시간: 10초`) flashes for 1.5 s on each change so the presenter can see the new value.
 
 ### 7.6 Bubble visual
 
@@ -335,7 +339,7 @@ Captured during the brainstorming session, locked unless explicitly reopened:
 - **Scope:** chat only — no reactions, polls, or Q&A.
 - **Visibility:** both presenter and audience see overlay (single-monitor mirrored projection).
 - **OS:** Windows.
-- **Visual:** 4 selectable corners (`Ctrl+1..4`); deterministic per-user color from a curated 12-palette; max 5 bubbles at once; 8 s fade; 28 px text.
+- **Visual:** 4 selectable corners (`Ctrl+1..4`); deterministic per-user color from a curated 12-palette; max 5 bubbles at once; **fade time adjustable `Ctrl+]`/`Ctrl+[` (default 8 s, range 2–30 s)**; **font size adjustable `Ctrl+=`/`Ctrl+-` (default 28 px, range 16–64 px)**; on-screen indicator flashes new value on each adjustment.
 - **Language:** all UI copy in Korean; system Korean fonts (Malgun Gothic / Apple SD Gothic Neo / Noto Sans KR) — no web font downloaded.
 - **Stack:** Firebase Realtime DB + static HTML on Firebase Hosting + Electron overlay; no React / TypeScript / bundler in v1.
 - **Distribution:** portable `.exe` via `electron-builder` (no installer).
