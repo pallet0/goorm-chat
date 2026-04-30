@@ -5,14 +5,17 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win portable"
+    "dist": "electron-builder --win"
   },
   "build": {
     "appId": "club.guruem.chat-overlay",
     "productName": "GuruemChatOverlay",
     "directories": { "output": "dist" },
     "win": {
-      "target": [{ "target": "portable", "arch": ["x64"] }]
+      "target": [
+        { "target": "portable", "arch": ["x64"] },
+        { "target": "zip",      "arch": ["x64"] }
+      ]
     },
     "files": [
       "main.js",
