@@ -5,16 +5,30 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "build:icon": "node scripts/build-icon.js",
     "dist": "electron-builder --win"
   },
   "build": {
     "appId": "club.guruem.chat-overlay",
     "productName": "GuruemChatOverlay",
-    "directories": { "output": "dist" },
+    "directories": {
+      "output": "dist"
+    },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
-        { "target": "portable", "arch": ["x64"] },
-        { "target": "zip",      "arch": ["x64"] }
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "files": [
@@ -26,6 +40,8 @@
   },
   "devDependencies": {
     "electron": "^31.0.0",
-    "electron-builder": "^24.13.0"
+    "electron-builder": "^24.13.0",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.34.5"
   }
 }
