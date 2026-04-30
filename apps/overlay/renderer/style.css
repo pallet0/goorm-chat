@@ -28,11 +28,15 @@ html, body {
   pointer-events: none;
 }
 
-/* corners — bottom-anchored corners flip column direction so newest is at the anchor */
-#stack.TL { top: 0;    left: 0;  align-items: flex-start; flex-direction: column; }
-#stack.TR { top: 0;    right: 0; align-items: flex-end;   flex-direction: column; }
-#stack.BL { bottom: 0; left: 0;  align-items: flex-start; flex-direction: column-reverse; }
-#stack.BR { bottom: 0; right: 0; align-items: flex-end;   flex-direction: column-reverse; }
+/* corners — universal column direction. Oldest at top of stack, newest at bottom.
+   Bottom-anchored corners pin the bottom of the stack to screen bottom (so the
+   newest bubble lands AT the anchor and the stack grows upward as more arrive).
+   Top-anchored corners pin the top, so the stack grows downward and the newest
+   bubble lands at the bottom of the visible stack. */
+#stack.TL { top: 0;    left: 0;  align-items: flex-start; }
+#stack.TR { top: 0;    right: 0; align-items: flex-end; }
+#stack.BL { bottom: 0; left: 0;  align-items: flex-start; }
+#stack.BR { bottom: 0; right: 0; align-items: flex-end; }
 
 .bubble {
   background: var(--bubble-bg);
@@ -44,11 +48,9 @@ html, body {
   max-width: 100%;
   text-shadow: 0 1px 2px rgba(0,0,0,0.6);
   opacity: 0;
+  transform: translateY(40px);
   transition: opacity 200ms ease-out, transform 200ms ease-out;
 }
-
-#stack.BL .bubble, #stack.BR .bubble { transform: translateY(40px); }
-#stack.TL .bubble, #stack.TR .bubble { transform: translateY(-40px); }
 
 .bubble.in {
   opacity: 1;
@@ -57,10 +59,9 @@ html, body {
 
 .bubble.out {
   opacity: 0;
+  transform: translateY(-20px);
   transition: opacity 300ms ease-in, transform 300ms ease-in;
 }
-#stack.BL .bubble.out, #stack.BR .bubble.out { transform: translateY(-20px); }
-#stack.TL .bubble.out, #stack.TR .bubble.out { transform: translateY(20px); }
 
 .nickname {
   font-weight: 700;

@@ -221,7 +221,7 @@ The combination of `transparent`, `frame: false`, `setAlwaysOnTop('screen-saver'
 
 - On load: read the palette + position config (passed via preload).
 - Subscribe to `/rooms/main/messages` ordered by `ts`, **`limitToLast(5)`**, listen for `child_added`.
-- On `child_added`: render a new bubble anchored at the configured corner, animate it in.
+- On `child_added`: render a new bubble at the **bottom** of the stack (Discord-style, regardless of corner), animate it in. Older bubbles always sit above newer ones; for bottom-anchored corners (BL/BR) the newest lands at the screen anchor and older ones stack upward, for top-anchored corners (TL/TR) the stack grows downward from the anchor.
 - A bubble disappears in either of two ways:
   - **8 s timeout** since arrival (set on render).
   - **Bumped:** when a 6th bubble arrives, the oldest is removed early.
@@ -229,9 +229,8 @@ The combination of `transparent`, `frame: false`, `setAlwaysOnTop('screen-saver'
 
 ### 7.3 Bubble animation
 
-- **In:** `transform: translateY(+40px)` → `translateY(0)`, `opacity: 0` → `1`, 200 ms ease-out.
-- **Out:** `opacity: 1` → `0`, `transform: translateY(-20px)`, 300 ms ease-in.
-- For top-anchored corners (TL/TR), invert the Y deltas (slide down, fade up).
+- **In:** `transform: translateY(+40px)` → `translateY(0)`, `opacity: 0` → `1`, 200 ms ease-out — every new bubble slides up into place from below, regardless of corner (matches the "new always at bottom of stack" semantics).
+- **Out:** `opacity: 1` → `0`, `transform: translateY(-20px)`, 300 ms ease-in — every leaving bubble slides up and fades, regardless of corner (oldest is always at top of stack, so up-and-out is the natural direction).
 
 ### 7.4 Position handling
 
