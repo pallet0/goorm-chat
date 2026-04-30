@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e0e10">
+  <title>구름 라이브 채팅</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <section id="nickname-screen" class="screen">
+      <h1>닉네임을 입력하세요</h1>
+      <form id="nickname-form" autocomplete="off">
+        <input id="nickname-input" type="text" maxlength="24" placeholder="닉네임" required autofocus>
+        <button type="submit">확인</button>
+      </form>
+    </section>
+
+    <section id="message-screen" class="screen hidden">
+      <header class="bar">
+        <span id="current-nickname"></span>
+        <button type="button" id="change-nickname" class="link">변경</button>
+      </header>
+      <form id="message-form" autocomplete="off">
+        <textarea id="message-input" maxlength="200" placeholder="메시지를 입력하세요" rows="3" required></textarea>
+        <button type="submit" id="send-button">보내기</button>
+      </form>
+    </section>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
