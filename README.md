@@ -2,8 +2,13 @@
 
 <div align="center">
 
-  [![채팅 오버레이 다운로드(presenter)](https://img.shields.io/badge/Download-ZIP-blue?style=for-the-badge&logo=github)](https://github.com/pallet0/gureum-chat/releases/tag/v1)
-  [![Website](https://img.shields.io/badge/Website-Visit-green?style=for-the-badge&logo=googlechrome)](https://gureum-chat.web.app/)
+  <a href="https://github.com/pallet0/gureum-chat/releases/tag/v1" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Download-ZIP-blue?style=for-the-badge&logo=github" alt="Download">
+  </a>
+
+  <a href="https://gureum-chat.web.app/" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Website-Visit-green?style=for-the-badge&logo=googlechrome" alt="Website">
+  </a>
 
 </div>
 
