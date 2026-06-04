@@ -4,36 +4,22 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { PALETTE } from "./palette.js";
+import { pickPosition } from "./placement.mjs";
 
-const MAX_VISIBLE = 5;
+const MAX_VISIBLE = 12;
 const DEFAULT_FADE_MS = 8000;
 const DEFAULT_FONT_PX = 28;
-const DEFAULT_POSITION = "BL";
 
-const POSITION_LABEL = {
-  TL: "왼쪽 위", TR: "오른쪽 위", BL: "왼쪽 아래", BR: "오른쪽 아래",
-};
-
-const stack = document.getElementById("stack");
+const field = document.getElementById("field");
 const indicator = document.getElementById("indicator");
 const statusBadge = document.getElementById("status-badge");
 const statusText = statusBadge.querySelector(".status-text");
-const bubbles = []; // { key, nickname, el, timer } — newest pushed last
+const bubbles = []; // { key, nickname, el, timer, rect } — newest pushed last
 
 let fadeAfterMs = DEFAULT_FADE_MS;
 let indicatorTimer = null;
 let banSet = new Set();
 let banMode = false;
-
-function setStackClass(pos) {
-  const corners = ["TL", "TR", "BL", "BR"];
-  for (const c of corners) {
-    stack.classList.remove(c);
-    statusBadge.classList.remove(c);
-  }
-  stack.classList.add(pos);
-  statusBadge.classList.add(pos);
-}
 
 function applyFontSize(px) {
   document.documentElement.style.setProperty("--bubble-font-size", `${px}px`);
@@ -55,7 +41,6 @@ function applyBanModeUI() {
 (async function init() {
   try {
     const s = await window.api.getSettings();
-    setStackClass(s.position || DEFAULT_POSITION);
     applyFontSize(s.fontSize || DEFAULT_FONT_PX);
     fadeAfterMs = s.fadeMs || DEFAULT_FADE_MS;
     banSet = new Set(s.banList || []);
@@ -63,15 +48,10 @@ function applyBanModeUI() {
     applyBanModeUI();
   } catch (e) {
     console.error("getSettings failed, using defaults", e);
-    setStackClass(DEFAULT_POSITION);
     applyFontSize(DEFAULT_FONT_PX);
     applyBanModeUI();
   }
 
-  window.api.onPositionChanged((pos) => {
-    setStackClass(pos);
-    showIndicator(`위치: ${POSITION_LABEL[pos] ?? pos}`);
-  });
   window.api.onFontChanged((size) => {
     applyFontSize(size);
     showIndicator(`글자 크기: ${size}px`);
@@ -89,7 +69,6 @@ function applyBanModeUI() {
     banSet = new Set(payload.list || []);
     if (payload.reason === "add" && payload.nickname) {
       showIndicator(`차단됨: ${payload.nickname}`);
-      // remove any other visible bubbles from this nickname
       for (const entry of bubbles.slice()) {
         if (entry.nickname === payload.nickname) removeBubble(entry);
       }
@@ -117,8 +96,22 @@ setTimeout(() => { initialReplayDone = true; }, 500);
 onChildAdded(messagesQuery, (snap) => {
   const m = snap.val();
   if (!m) return;
-  if (m.nickname && banSet.has(m.nickname)) return; // filtered
-  pushBubble(snap.key, m, /* animate */ initialReplayDone);
+  const banned = !!(m.nickname && banSet.has(m.nickname));
+
+  // log every live message (skip the initial replay of pre-session history)
+  if (initialReplayDone) {
+    window.api.logMessage({
+      ts: m.ts ?? null,
+      key: snap.key,
+      nickname: m.nickname ?? "",
+      text: m.text ?? "",
+      colorIdx: m.colorIdx ?? 0,
+      banned,
+    });
+  }
+
+  if (banned) return; // filtered from display
+  pushBubble(snap.key, m, initialReplayDone);
 });
 
 function pushBubble(key, m, animate) {
@@ -138,9 +131,22 @@ function pushBubble(key, m, animate) {
   const text = document.createTextNode(m.text ?? "");
   el.appendChild(nick);
   el.appendChild(text);
-  stack.appendChild(el);
+  field.appendChild(el);
 
-  const entry = { key, nickname: m.nickname ?? "", el, timer: null };
+  // measure the rendered bubble, then choose a boundary-safe, non-overlapping spot
+  const w = el.offsetWidth;
+  const h = el.offsetHeight;
+  const existing = bubbles.map((b) => b.rect).filter(Boolean);
+  const { x, y } = pickPosition({
+    vw: window.innerWidth,
+    vh: window.innerHeight,
+    w, h,
+    existing,
+  });
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+
+  const entry = { key, nickname: m.nickname ?? "", el, timer: null, rect: { x, y, w, h } };
   bubbles.push(entry);
 
   // click-to-ban — only effective when ban mode is on (CSS controls pointer-events)
