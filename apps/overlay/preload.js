@@ -3,8 +3,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("api", {
   getSettings: () => ipcRenderer.invoke("get-settings"),
   requestBan: (nickname) => ipcRenderer.send("ban", nickname),
-  onPositionChanged: (cb) =>
-    ipcRenderer.on("position-changed", (_event, pos) => cb(pos)),
+  logMessage: (rec) => ipcRenderer.send("log-message", rec),
   onFontChanged: (cb) =>
     ipcRenderer.on("font-changed", (_event, size) => cb(size)),
   onFadeChanged: (cb) =>
