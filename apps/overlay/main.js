@@ -76,7 +76,9 @@ function initLogFile() {
 function appendLog(rec) {
   if (!logFilePath || !rec || typeof rec !== "object") return;
   try {
-    const line = JSON.stringify({ loggedAt: Date.now(), ...rec }) + "\n";
+    // loggedAt is the authoritative main-process timestamp — spread rec first so
+    // a renderer-supplied field can never overwrite it.
+    const line = JSON.stringify({ ...rec, loggedAt: Date.now() }) + "\n";
     fs.appendFileSync(logFilePath, line);
   } catch (e) {
     console.error("appendLog failed", e);
