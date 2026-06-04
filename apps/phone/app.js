@@ -6,7 +6,7 @@ import { firebaseConfig } from "./firebase-config.js";
 import { PALETTE, colorIdxFor } from "./palette.js";
 
 const STORAGE_KEY = "chat.nickname";
-const COOLDOWN_MS = 2000;
+const COOLDOWN_MS = 750;
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -99,6 +99,18 @@ els.msgForm.addEventListener("submit", async (e) => {
       cooldown = false;
       els.sendBtn.disabled = false;
     }, COOLDOWN_MS);
+  }
+});
+
+// Enter sends; Shift+Enter inserts a newline. Ignore Enter while the IME is
+// composing (e.g. confirming a Hangul syllable) so half-typed text isn't sent.
+els.msgInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+    e.preventDefault();
+    // requestSubmit routes through the submit handler (cooldown/validation/toast);
+    // dispatchEvent is a fallback for older iOS Safari that lacks requestSubmit.
+    if (els.msgForm.requestSubmit) els.msgForm.requestSubmit(els.sendBtn);
+    else els.msgForm.dispatchEvent(new Event("submit", { cancelable: true }));
   }
 });
 
