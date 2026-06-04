@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "test": "node --test renderer/*.test.mjs",
     "build:icon": "node scripts/build-icon.js",
     "dist": "electron-builder --win"
   },
