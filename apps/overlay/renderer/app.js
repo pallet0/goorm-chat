@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getDatabase, ref, query, limitToLast, onChildAdded,
+  getDatabase, ref, query, limitToLast, onChildAdded, remove,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { PALETTE } from "./palette.js";
@@ -85,21 +85,25 @@ function applyBanModeUI() {
 // firebase listen
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const messagesQuery = query(
-  ref(db, "rooms/main/messages"),
-  limitToLast(MAX_VISIBLE),
-);
+const messagesRef = ref(db, "rooms/main/messages");
+const messagesQuery = query(messagesRef, limitToLast(MAX_VISIBLE));
 
-let initialReplayDone = false;
-setTimeout(() => { initialReplayDone = true; }, 500);
+// Flush accumulated history on startup, THEN listen for new messages only — so
+// turning the overlay on never dumps the previous session's backlog on screen.
+// Awaiting remove() before attaching the listener guarantees nothing replays.
+// (Each session's messages are still archived to the local .jsonl log.)
+(async function startFeed() {
+  try {
+    await remove(messagesRef);
+  } catch (e) {
+    console.error("flush failed; old messages may replay", e);
+  }
 
-onChildAdded(messagesQuery, (snap) => {
-  const m = snap.val();
-  if (!m) return;
-  const banned = !!(m.nickname && banSet.has(m.nickname));
+  onChildAdded(messagesQuery, (snap) => {
+    const m = snap.val();
+    if (!m) return;
+    const banned = !!(m.nickname && banSet.has(m.nickname));
 
-  // log every live message (skip the initial replay of pre-session history)
-  if (initialReplayDone) {
     window.api.logMessage({
       ts: m.ts ?? null,
       key: snap.key,
@@ -108,11 +112,11 @@ onChildAdded(messagesQuery, (snap) => {
       colorIdx: m.colorIdx ?? 0,
       banned,
     });
-  }
 
-  if (banned) return; // filtered from display
-  pushBubble(snap.key, m, initialReplayDone);
-});
+    if (banned) return; // filtered from display
+    pushBubble(snap.key, m, /* animate */ true);
+  });
+})();
 
 function pushBubble(key, m, animate) {
   if (bubbles.find((b) => b.key === key)) return; // safety: no dupes
