@@ -2,16 +2,13 @@ const { app, BrowserWindow, globalShortcut, ipcMain, screen } = require("electro
 const path = require("node:path");
 const fs = require("node:fs");
 
-const POSITIONS = ["TL", "TR", "BL", "BR"];
-const DEFAULT_POSITION = "BL";
-
 const FONT_RANGE = { min: 16, max: 64, step: 2, def: 28 };
 const FADE_RANGE = { min: 2000, max: 30000, step: 2000, def: 8000 };
 const BAN_MODE_AUTO_EXIT_MS = 30000;
 
 let win = null;
 let configPath = null;
-let position = DEFAULT_POSITION;
+let logFilePath = null;
 let fontSize = FONT_RANGE.def;
 let fadeMs = FADE_RANGE.def;
 let banList = new Set();
@@ -27,7 +24,6 @@ function loadConfig() {
   try {
     const raw = fs.readFileSync(configPath, "utf8");
     const data = JSON.parse(raw);
-    if (POSITIONS.includes(data.position)) position = data.position;
     if (typeof data.fontSize === "number") {
       fontSize = clamp(data.fontSize, FONT_RANGE.min, FONT_RANGE.max);
     }
@@ -47,7 +43,6 @@ function saveConfig() {
     fs.writeFileSync(
       configPath,
       JSON.stringify({
-        position,
         fontSize,
         fadeMs,
         banList: [...banList],
@@ -55,6 +50,36 @@ function saveConfig() {
     );
   } catch (e) {
     console.error("saveConfig failed", e);
+  }
+}
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+function sessionLogName(d) {
+  return `chat-${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}`
+    + `-${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}.jsonl`;
+}
+
+function initLogFile() {
+  try {
+    const logsDir = path.join(app.getPath("userData"), "logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    logFilePath = path.join(logsDir, sessionLogName(new Date()));
+  } catch (e) {
+    console.error("initLogFile failed", e);
+    logFilePath = null;
+  }
+}
+
+function appendLog(rec) {
+  if (!logFilePath || !rec || typeof rec !== "object") return;
+  try {
+    const line = JSON.stringify({ loggedAt: Date.now(), ...rec }) + "\n";
+    fs.appendFileSync(logFilePath, line);
+  } catch (e) {
+    console.error("appendLog failed", e);
   }
 }
 
@@ -85,15 +110,6 @@ function createWindow() {
   win.setSkipTaskbar(true);
 
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
-}
-
-function setPosition(pos) {
-  if (!POSITIONS.includes(pos) || pos === position) return;
-  position = pos;
-  saveConfig();
-  if (win && !win.isDestroyed()) {
-    win.webContents.send("position-changed", position);
-  }
 }
 
 function adjustFontSize(delta) {
@@ -164,23 +180,19 @@ function toggleChatHidden() {
 }
 
 ipcMain.handle("get-settings", () => ({
-  position, fontSize, fadeMs,
+  fontSize, fadeMs,
   banList: [...banList],
   banMode,
 }));
 
 ipcMain.on("ban", (_e, nickname) => addBan(nickname));
+ipcMain.on("log-message", (_e, rec) => appendLog(rec));
 
 app.whenReady().then(() => {
   configPath = path.join(app.getPath("userData"), "config.json");
   loadConfig();
+  initLogFile();
   createWindow();
-
-  // position
-  globalShortcut.register("Control+1", () => setPosition("TL"));
-  globalShortcut.register("Control+2", () => setPosition("TR"));
-  globalShortcut.register("Control+3", () => setPosition("BL"));
-  globalShortcut.register("Control+4", () => setPosition("BR"));
 
   // font size
   globalShortcut.register("Control+=", () => adjustFontSize(FONT_RANGE.step));
