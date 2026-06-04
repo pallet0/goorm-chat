@@ -17,7 +17,7 @@ Change how incoming chat messages appear on the presenter overlay:
 
 - Font-size hotkeys `Ctrl+=` / `Ctrl+-` (and numpad variants).
 - Float-time hotkeys `Ctrl+]` / `Ctrl+[` — `fadeMs` remains the on-screen lifetime of each bubble.
-- Ban mode (`Ctrl+Shift+B`, click-to-ban, `Ctrl+Shift+U`), `MAX_VISIBLE = 5`.
+- Ban mode (`Ctrl+Shift+B`, click-to-ban, `Ctrl+Shift+U`).
 - `Ctrl+Shift+H` (hide chat), `Ctrl+Shift+Q` (quit).
 - Firebase listener, palette/colorIdx, Korean font stack.
 
@@ -32,7 +32,8 @@ Change how incoming chat messages appear on the presenter overlay:
 
 | Decision | Choice |
 |----------|--------|
-| 4-corner anchoring (`Ctrl+1–4`) | **Removed.** Status badge kept, fixed in bottom-right. |
+| 4-corner anchoring (`Ctrl+1–4`) | **Removed.** Status badge kept, fixed in top-left. |
+| Max bubbles on screen at once | `MAX_VISIBLE` raised `5 → 12` (generous; oldest evicted past 12). |
 | Overlap when bubbles coincide | **Best-effort avoidance**, fall back to least-overlap. |
 | Log format | **JSON Lines** (`.jsonl`), append-only. |
 | Log scope | **All received** messages; banned ones flagged `banned:true`. |
@@ -92,7 +93,7 @@ and the rects of the bubbles currently tracked in the `bubbles[]` array.
 - `Ctrl+1–4` global shortcuts and `setPosition` (main).
 - `position` config field, `position-changed` IPC, `onPositionChanged` (preload/renderer).
 - `setStackClass`, the `.TL/.TR/.BL/.BR` stack corner CSS, `POSITION_LABEL`.
-- Status badge corner-following: it is now a single fixed bottom-right rule.
+- Status badge corner-following: it is now a single fixed top-left rule.
 
 ## 7. Chat log (main process)
 
