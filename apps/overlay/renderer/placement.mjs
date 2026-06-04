@@ -30,6 +30,8 @@ export function pickPosition({
 }) {
   const xLo = margin;
   const yLo = margin;
+  // safe span = viewport - bubble - both margins (left margin = xLo, right margin = margin),
+  // so a candidate in [xLo, xLo+spanX] keeps the whole bubble >= margin from every edge.
   const spanX = Math.max(0, vw - w - margin - xLo);
   const spanY = Math.max(0, vh - h - margin - yLo);
 
